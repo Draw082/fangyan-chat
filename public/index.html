@@ -19,7 +19,7 @@
     display: flex; align-items: center; justify-content: space-between; gap: 10px; flex: none;
   }
   .room-title { font-weight: 600; font-size: 16px; white-space: nowrap; }
-  .me-info { font-size: 13px; color: #666; white-space: nowrap; flex: 1; }
+  .me-info { font-size: 13px; color: #666; white-space: nowrap; flex: 1; overflow: hidden; text-overflow: ellipsis; }
   .me-info b { color: #07c160; }
   .header-actions { display: flex; gap: 8px; align-items: center; }
   .mobile-only { display: none; }
@@ -159,8 +159,8 @@
 const socket = io();
 
 const state = {
-  me: { id: '', userId: '', name: '' }, // id 是 socket.id，userId 是持久化ID
-  hostId: null, // 现在存储的是 hostUserId
+  me: { id: '', userId: '', name: '' },
+  hostId: null,
   members: [],
   conversations: {
     public: { type: 'public', title: '公聊', messages: [], unread: 0 }
@@ -175,13 +175,10 @@ window.addEventListener('DOMContentLoaded', () => {
   const savedUserId = localStorage.getItem('chat_userId');
 
   if (savedRoom && savedName && savedUserId) {
-    // 如果是刷新或重新打开，直接重连
     state.me.userId = savedUserId;
     state.me.name = savedName;
-    document.getElementById('my-name').textContent = savedName;
     socket.emit('user:join', { roomId: savedRoom, name: savedName, userId: savedUserId });
   } else {
-    // 新用户展示登录框
     document.getElementById('login-modal').style.display = 'flex';
   }
 
@@ -196,7 +193,6 @@ function joinRoom() {
   if (!roomId) { alert('请输入房间码'); return; }
   if (!name) { alert('请输入昵称'); return; }
 
-  // 首次进房，生成一个持久化的 userId，以后刷新都用这个
   let userId = localStorage.getItem('chat_userId');
   if (!userId) {
     userId = 'u_' + Date.now() + Math.random().toString(36).slice(2, 8);
@@ -208,7 +204,6 @@ function joinRoom() {
 
   state.me.name = name;
   state.me.userId = userId;
-  document.getElementById('my-name').textContent = name;
   document.getElementById('login-modal').style.display = 'none';
   
   socket.emit('user:join', { roomId, name, userId });
@@ -218,6 +213,7 @@ function leaveRoom() {
   if (confirm('确定要退出聊天室吗？')) {
     localStorage.removeItem('chat_roomId');
     localStorage.removeItem('chat_name');
+    // 注意：这里保留了 chat_userId，防止再次登录时生成新身份
     location.reload();
   }
 }
@@ -239,6 +235,11 @@ socket.on('room:init', (data) => {
   state.members = data.users;
   state.hostId = data.hostUserId;
   
+  // 修复：在这里直接更新顶部栏的文字
+  document.getElementById('my-name').textContent = getMember(state.me.userId).name || state.me.name;
+  const hostName = getMember(state.hostId).name;
+  document.getElementById('host-name').textContent = hostName || '-';
+
   state.conversations.public.messages = [];
   data.messages.forEach(msg => {
     processIncomingMessage(msg, true);
@@ -252,10 +253,12 @@ socket.on('room:init', (data) => {
 socket.on('room:update-users', (users) => {
   state.members = users;
   renderMembers();
+  // 修复：成员更新时，如果还没找到主持人，补一下顶部渲染
+  document.getElementById('host-name').textContent = getMember(state.hostId).name || '-';
 });
 
 socket.on('host:changed', (hostId) => {
-  state.hostId = hostId; // hostId 是 userId
+  state.hostId = hostId;
   const hostName = getMember(hostId).name;
   const hostEl = document.getElementById('host-name');
   if (hostEl) hostEl.textContent = hostName || '-';
@@ -299,7 +302,6 @@ function processIncomingMessage(msg, isInit) {
   let convKey = 'public';
   
   if (msg.isPrivate) {
-    // msg.to 存的是 userId 列表
     const others = msg.to.filter(id => id !== state.me.userId);
     const sortedIds = others.sort().join(',');
     convKey = 'private:' + sortedIds;
@@ -309,7 +311,7 @@ function processIncomingMessage(msg, isInit) {
       state.conversations[convKey] = {
         type: 'private',
         title: '私聊(' + names + ')',
-        targetIds: others, // 私聊目标也是 userId
+        targetIds: others,
         messages: [],
         unread: 0
       };
@@ -323,7 +325,7 @@ function processIncomingMessage(msg, isInit) {
   if (!conv.messages.find(m => m.id === msg.id)) {
     conv.messages.push({
       id: msg.id,
-      from: msg.from === state.me.userId ? 'me' : msg.from, // 判断消息是不是自己发的
+      from: msg.from === state.me.userId ? 'me' : msg.from,
       type: msg.isRecalled ? 'recalled' : msg.type,
       content: msg.content,
       duration: msg.duration,
@@ -386,7 +388,6 @@ function renderMembers() {
     btn.addEventListener('click', () => socket.emit('host:transfer', btn.dataset.id));
   });
 
-  // 控制解散按钮的显示
   const btnDissolve = document.getElementById('btn-dissolve');
   if (state.me.userId === state.hostId) {
     btnDissolve.style.display = 'block';
@@ -631,7 +632,7 @@ async function toggleRecord() {
 // ---------- 其他 ----------
 function startPrivateChat() {
   const checked = Array.from(document.querySelectorAll('.member-check:checked'))
-    .map(c => c.value).filter(id => id !== state.me.userId); // 排除自己
+    .map(c => c.value).filter(id => id !== state.me.userId);
 
   if (checked.length === 0) { alert('请先勾选成员'); return; }
   const key = 'private:' + checked.slice().sort().join(',');
