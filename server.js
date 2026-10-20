@@ -9,8 +9,7 @@ const io = new Server(server, { maxHttpBufferSize: 1e7 });
 
 app.use(express.static(path.join(__dirname, 'public')));
 
-// 房间数据：
-// rooms: Map<roomId, { users: Map<socketId, user>, hostUserId: string, messages: [] }>
+// 内存数据库
 const rooms = new Map();
 
 io.on('connection', (socket) => {
@@ -27,7 +26,6 @@ io.on('connection', (socket) => {
     currentUserId = userId;
     socket.join(roomId);
 
-    // 如果房间不存在，则新建（这就实现了“解散后再次输入视为新房间”）
     if (!rooms.has(roomId)) {
       rooms.set(roomId, { 
         users: new Map(), 
@@ -38,11 +36,10 @@ io.on('connection', (socket) => {
     
     const room = rooms.get(roomId);
     
-    // 如果用户是断线重连或刷新，把旧的 socket 记录移除，保留他的历史状态
+    // 断线重连处理：移除旧 socket，保留历史状态
     for (const [oldSocketId, u] of room.users.entries()) {
       if (u.userId === userId) {
         room.users.delete(oldSocketId);
-        // 踢掉旧的连接（如果有的话）
         io.sockets.sockets.get(oldSocketId)?.disconnect();
       }
     }
@@ -50,12 +47,10 @@ io.on('connection', (socket) => {
     const user = { id: socket.id, userId, name };
     room.users.set(socket.id, user);
 
-    // 如果原主持人不在房间里，或者还没有主持人，当前用户自动接管
     if (!room.hostUserId || !Array.from(room.users.values()).some(u => u.userId === room.hostUserId)) {
       room.hostUserId = userId;
     }
 
-    // 给该用户发送初始化数据
     socket.emit('room:init', {
       users: Array.from(room.users.values()),
       hostUserId: room.hostUserId,
@@ -63,7 +58,6 @@ io.on('connection', (socket) => {
       myUserId: userId
     });
 
-    // 广播给房间内其他人
     io.to(roomId).emit('room:update-users', Array.from(room.users.values()));
     io.to(roomId).emit('host:changed', room.hostUserId);
   });
@@ -78,7 +72,7 @@ io.on('connection', (socket) => {
 
     const newMsg = {
       id: 'msg_' + Date.now() + Math.random().toString(16).slice(2, 6),
-      from: user.userId, // 用持久化的 userId 发送
+      from: user.userId,
       fromName: user.name,
       type: msg.type,
       content: msg.content,
@@ -93,14 +87,12 @@ io.on('connection', (socket) => {
       room.messages.push(newMsg);
       io.to(currentRoomId).emit('chat:receive', newMsg);
     } else {
-      // 私聊：参与人使用 userId 集合
       const recipients = Array.isArray(msg.to) ? msg.to : [msg.to];
       const participants = Array.from(new Set([...recipients, user.userId])).sort();
       newMsg.to = participants;
       
       room.messages.push(newMsg);
 
-      // 只发给对应 userId 的 socket
       room.users.forEach((u, sId) => {
         if (participants.includes(u.userId)) {
           io.to(sId).emit('chat:receive', newMsg);
@@ -143,14 +135,17 @@ io.on('connection', (socket) => {
   socket.on('room:dissolve', () => {
     if (!currentRoomId) return;
     const room = rooms.get(currentRoomId);
-    // 只有主持人能解散
     if (room && currentUserId === room.hostUserId) {
-      rooms.delete(currentRoomId); // 彻底销毁房间，后续同房间码会重新创建
+      // 1. 彻底删除房间数据
+      rooms.delete(currentRoomId); 
+      // 2. 通知所有人房间已解散
       io.to(currentRoomId).emit('room:dissolved');
+      // 3. 把所有连接踢出该房间频道，避免后续触发“主持人离开”的广播
+      io.in(currentRoomId).socketsLeave(currentRoomId);
     }
   });
 
-  // 断开连接（关闭网页、刷新、退出）
+  // 断开连接
   socket.on('disconnect', () => {
     if (!currentRoomId) return;
     const room = rooms.get(currentRoomId);
@@ -158,7 +153,6 @@ io.on('connection', (socket) => {
     
     room.users.delete(socket.id);
     
-    // 如果主持人断开了，自动转让给房间内剩下的人
     if (currentUserId === room.hostUserId) {
       const remainingUsers = Array.from(room.users.values());
       if (remainingUsers.length > 0) {
@@ -166,7 +160,7 @@ io.on('connection', (socket) => {
         io.to(currentRoomId).emit('host:changed', room.hostUserId);
         io.to(currentRoomId).emit('system:msg', `主持人已离开，自动转移给 ${remainingUsers[0].name}`);
       } else {
-        room.hostUserId = null; // 房间空了
+        room.hostUserId = null;
       }
     }
     
