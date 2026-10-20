@@ -19,8 +19,9 @@
     display: flex; align-items: center; justify-content: space-between; gap: 10px; flex: none;
   }
   .room-title { font-weight: 600; font-size: 16px; white-space: nowrap; }
-  .me-info { font-size: 13px; color: #666; white-space: nowrap; }
+  .me-info { font-size: 13px; color: #666; white-space: nowrap; flex: 1; }
   .me-info b { color: #07c160; }
+  .header-actions { display: flex; gap: 8px; align-items: center; }
   .mobile-only { display: none; }
 
   .main { flex: 1; display: flex; min-height: 0; position: relative; }
@@ -39,8 +40,9 @@
   .host-tag { font-size: 11px; background: #fff3cd; color: #b8860b; padding: 1px 5px; border-radius: 4px; margin-left: 4px; vertical-align: middle; }
   .transfer-btn { font-size: 11px; padding: 4px 7px; background: #eee; color: #555; border: none; border-radius: 5px; cursor: pointer; flex: none; }
   .transfer-btn:hover { background: #ddd; }
-  .members-footer { padding: 10px; padding-bottom: calc(10px + env(safe-area-inset-bottom)); border-top: 1px solid #eee; flex: none; }
+  .members-footer { padding: 10px; padding-bottom: calc(10px + env(safe-area-inset-bottom)); border-top: 1px solid #eee; flex: none; display: flex; flex-direction: column; gap: 8px; }
   .members-footer button { width: 100%; }
+  .btn-danger { background: #e74c3c !important; color: #fff !important; }
 
   .overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.35); z-index: 99; }
   .overlay.show { display: block; }
@@ -50,16 +52,11 @@
   .tabs::-webkit-scrollbar { display: none; }
   .tab { position: relative; padding: 12px 16px; font-size: 14px; cursor: pointer; white-space: nowrap; border-bottom: 2px solid transparent; color: #555; flex: none; }
   .tab.active { color: #07c160; border-bottom-color: #07c160; font-weight: 600; }
-  .unread-badge {
-    display: inline-block; background: #ff3b30; color: #fff;
-    font-size: 11px; padding: 1px 5px; border-radius: 10px;
-    margin-left: 4px; vertical-align: middle;
-  }
+  .unread-badge { display: inline-block; background: #ff3b30; color: #fff; font-size: 11px; padding: 1px 5px; border-radius: 10px; margin-left: 4px; vertical-align: middle; }
 
   .messages { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
   .system-msg { text-align: center; color: #999; font-size: 12px; padding: 2px 0; line-height: 1.5; }
   .system-msg.recalled { color: #aaa; }
-
   .msg-row { display: flex; gap: 8px; align-items: flex-start; }
   .msg-row.mine { flex-direction: row-reverse; }
   .bubble { max-width: 68%; padding: 9px 13px; border-radius: 12px; background: #fff; line-height: 1.45; font-size: 15px; word-break: break-word; box-shadow: 0 1px 2px rgba(0,0,0,.04); }
@@ -79,7 +76,6 @@
   #record-btn { background: #f0f0f0; color: #333; padding: 0; width: 44px; font-size: 20px; }
   #record-btn.recording { background: #e74c3c; color: #fff; width: auto; padding: 0 14px; font-size: 15px; }
 
-  /* 撤回菜单 */
   .msg-menu-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.35); z-index: 200; }
   .msg-menu-overlay.show { display: block; }
   .msg-menu { display: none; position: fixed; left: 50%; bottom: 0; transform: translateX(-50%); width: 100%; max-width: 420px; background: #fff; border-radius: 12px 12px 0 0; padding-bottom: env(safe-area-inset-bottom); z-index: 201; overflow: hidden; box-shadow: 0 -2px 16px rgba(0,0,0,.15); }
@@ -89,7 +85,6 @@
   .msg-menu button.danger { color: #e74c3c; }
   .msg-menu button.cancel { color: #666; border-bottom: none; background: #f7f7f7; }
 
-  /* 登录弹窗 */
   .login-modal { position: fixed; inset: 0; background: #f0f2f5; z-index: 999; display: flex; flex-direction: column; align-items: center; justify-content: center; }
   .login-box { background: #fff; padding: 30px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); width: 90%; max-width: 360px; display: flex; flex-direction: column; gap: 16px; }
   .login-box h2 { margin: 0 0 10px 0; text-align: center; color: #333; font-size: 20px; }
@@ -109,8 +104,7 @@
 </head>
 <body>
 
-<!-- 登录弹窗 -->
-<div id="login-modal" class="login-modal">
+<div id="login-modal" class="login-modal" style="display: none;">
   <div class="login-box">
     <h2>加入聊天室</h2>
     <input id="input-room" type="text" placeholder="房间码（如：fangyan888）" autocomplete="off">
@@ -120,11 +114,14 @@
 </div>
 
 <header>
-  <div class="room-title">方言传话 · 聊天室</div>
-  <div class="me-info desktop-only">
+  <div class="room-title">聊天室</div>
+  <div class="me-info">
     我：<b id="my-name">-</b> · 主持人：<b id="host-name">-</b>
   </div>
-  <button id="members-toggle" class="mobile-only" style="background:#f0f0f0;color:#333;">成员</button>
+  <div class="header-actions">
+    <button id="btn-leave" class="mobile-only" style="background:#f0f0f0;color:#333;height:36px;font-size:13px;">退出</button>
+    <button id="members-toggle" class="mobile-only" style="height:36px;font-size:13px;">成员</button>
+  </div>
 </header>
 
 <div class="main">
@@ -135,6 +132,8 @@
     <div class="members-list" id="members-list"></div>
     <div class="members-footer">
       <button id="private-btn">和选中的人私聊</button>
+      <button id="btn-dissolve" class="btn-danger" style="display: none;">解散聊天室</button>
+      <button id="btn-leave-desktop" class="desktop-only" style="background:#f0f0f0;color:#333;">退出房间</button>
     </div>
   </aside>
 
@@ -160,8 +159,8 @@
 const socket = io();
 
 const state = {
-  me: { id: '', name: '' },
-  hostId: null,
+  me: { id: '', userId: '', name: '' }, // id 是 socket.id，userId 是持久化ID
+  hostId: null, // 现在存储的是 hostUserId
   members: [],
   conversations: {
     public: { type: 'public', title: '公聊', messages: [], unread: 0 }
@@ -169,8 +168,23 @@ const state = {
   activeConv: 'public'
 };
 
-// ---------- 登录逻辑 ----------
-document.addEventListener('DOMContentLoaded', () => {
+// ---------- 登录与重连逻辑 ----------
+window.addEventListener('DOMContentLoaded', () => {
+  const savedRoom = localStorage.getItem('chat_roomId');
+  const savedName = localStorage.getItem('chat_name');
+  const savedUserId = localStorage.getItem('chat_userId');
+
+  if (savedRoom && savedName && savedUserId) {
+    // 如果是刷新或重新打开，直接重连
+    state.me.userId = savedUserId;
+    state.me.name = savedName;
+    document.getElementById('my-name').textContent = savedName;
+    socket.emit('user:join', { roomId: savedRoom, name: savedName, userId: savedUserId });
+  } else {
+    // 新用户展示登录框
+    document.getElementById('login-modal').style.display = 'flex';
+  }
+
   document.getElementById('btn-join').addEventListener('click', joinRoom);
   document.getElementById('input-room').addEventListener('keydown', e => { if (e.key === 'Enter') joinRoom(); });
   document.getElementById('input-name').addEventListener('keydown', e => { if (e.key === 'Enter') joinRoom(); });
@@ -182,22 +196,51 @@ function joinRoom() {
   if (!roomId) { alert('请输入房间码'); return; }
   if (!name) { alert('请输入昵称'); return; }
 
+  // 首次进房，生成一个持久化的 userId，以后刷新都用这个
+  let userId = localStorage.getItem('chat_userId');
+  if (!userId) {
+    userId = 'u_' + Date.now() + Math.random().toString(36).slice(2, 8);
+    localStorage.setItem('chat_userId', userId);
+  }
+
+  localStorage.setItem('chat_roomId', roomId);
+  localStorage.setItem('chat_name', name);
+
   state.me.name = name;
+  state.me.userId = userId;
   document.getElementById('my-name').textContent = name;
   document.getElementById('login-modal').style.display = 'none';
   
-  socket.emit('user:join', { roomId, name });
+  socket.emit('user:join', { roomId, name, userId });
 }
+
+function leaveRoom() {
+  if (confirm('确定要退出聊天室吗？')) {
+    localStorage.removeItem('chat_roomId');
+    localStorage.removeItem('chat_name');
+    location.reload();
+  }
+}
+
+function dissolveRoom() {
+  if (confirm('确定要解散聊天室吗？所有成员将被踢出，此房间码将失效。')) {
+    socket.emit('room:dissolve');
+  }
+}
+
+document.getElementById('btn-leave').addEventListener('click', leaveRoom);
+document.getElementById('btn-leave-desktop').addEventListener('click', leaveRoom);
+document.getElementById('btn-dissolve').addEventListener('click', dissolveRoom);
 
 // ---------- 接收后端数据 ----------
 socket.on('room:init', (data) => {
   state.me.id = socket.id;
+  state.me.userId = data.myUserId;
   state.members = data.users;
-  state.hostId = data.hostId;
+  state.hostId = data.hostUserId;
   
   state.conversations.public.messages = [];
   data.messages.forEach(msg => {
-    // 初始化时，如果是私聊且包含自己，放进私聊会话，否则放入公聊
     processIncomingMessage(msg, true);
   });
 
@@ -212,11 +255,18 @@ socket.on('room:update-users', (users) => {
 });
 
 socket.on('host:changed', (hostId) => {
-  state.hostId = hostId;
+  state.hostId = hostId; // hostId 是 userId
   const hostName = getMember(hostId).name;
   const hostEl = document.getElementById('host-name');
   if (hostEl) hostEl.textContent = hostName || '-';
   renderMembers();
+});
+
+socket.on('room:dissolved', () => {
+  alert('聊天室已被主持人解散。');
+  localStorage.removeItem('chat_roomId');
+  localStorage.removeItem('chat_name');
+  location.reload();
 });
 
 socket.on('system:msg', (text) => {
@@ -245,12 +295,12 @@ socket.on('chat:recalled', ({ msgId }) => {
   renderMessages();
 });
 
-// 统一处理收到消息的逻辑（加载历史记录和实时接收复用）
 function processIncomingMessage(msg, isInit) {
   let convKey = 'public';
   
   if (msg.isPrivate) {
-    const others = msg.to.filter(id => id !== state.me.id);
+    // msg.to 存的是 userId 列表
+    const others = msg.to.filter(id => id !== state.me.userId);
     const sortedIds = others.sort().join(',');
     convKey = 'private:' + sortedIds;
 
@@ -259,7 +309,7 @@ function processIncomingMessage(msg, isInit) {
       state.conversations[convKey] = {
         type: 'private',
         title: '私聊(' + names + ')',
-        targetIds: others,
+        targetIds: others, // 私聊目标也是 userId
         messages: [],
         unread: 0
       };
@@ -273,7 +323,7 @@ function processIncomingMessage(msg, isInit) {
   if (!conv.messages.find(m => m.id === msg.id)) {
     conv.messages.push({
       id: msg.id,
-      from: msg.from === state.me.id ? 'me' : msg.from,
+      from: msg.from === state.me.userId ? 'me' : msg.from, // 判断消息是不是自己发的
       type: msg.isRecalled ? 'recalled' : msg.type,
       content: msg.content,
       duration: msg.duration,
@@ -289,20 +339,17 @@ function processIncomingMessage(msg, isInit) {
         renderTabs();
       }
       
-      // 消息提醒 (避免提示自己发的消息)
-      if (!isVisible && msg.from !== state.me.id) {
+      if (!isVisible && msg.from !== state.me.userId) {
         tryPlaySound();
-        if (document.visibilityState === 'hidden') {
-          startTitleBlink();
-        }
+        if (document.visibilityState === 'hidden') startTitleBlink();
       }
     }
   }
 }
 
 // ---------- 渲染逻辑 ----------
-function getMember(id) {
-  return state.members.find(m => m.id === id) || { id, name: '未知' };
+function getMember(userId) {
+  return state.members.find(m => m.userId === userId) || { userId, name: '未知' };
 }
 function scrollToBottom() {
   const box = document.getElementById('messages');
@@ -313,17 +360,17 @@ function renderMembers() {
   const list = document.getElementById('members-list');
   list.innerHTML = '';
   state.members.forEach(m => {
-    const isHost = m.id === state.hostId;
-    const isMe = m.id === state.me.id;
-    const canTransfer = (state.me.id === state.hostId) && !isHost;
+    const isHost = m.userId === state.hostId;
+    const isMe = m.userId === state.me.userId;
+    const canTransfer = (state.me.userId === state.hostId) && !isHost;
 
     const item = document.createElement('div');
     item.className = 'member-item';
     item.innerHTML =
-      '<input type="checkbox" class="member-check" value="' + m.id + '"' + (isMe ? ' disabled' : '') + '>' +
+      '<input type="checkbox" class="member-check" value="' + m.userId + '"' + (isMe ? ' disabled' : '') + '>' +
       '<div class="avatar">' + (m.name[0] || '?') + '</div>' +
       '<div class="member-name">' + m.name + (isHost ? ' <span class="host-tag">主持</span>' : '') + '</div>' +
-      (canTransfer ? '<button class="transfer-btn" data-id="' + m.id + '">设为主持</button>' : '');
+      (canTransfer ? '<button class="transfer-btn" data-id="' + m.userId + '">设为主持</button>' : '');
 
     item.addEventListener('click', e => {
       if (e.target.closest('.transfer-btn')) return;
@@ -338,6 +385,14 @@ function renderMembers() {
   list.querySelectorAll('.transfer-btn').forEach(btn => {
     btn.addEventListener('click', () => socket.emit('host:transfer', btn.dataset.id));
   });
+
+  // 控制解散按钮的显示
+  const btnDissolve = document.getElementById('btn-dissolve');
+  if (state.me.userId === state.hostId) {
+    btnDissolve.style.display = 'block';
+  } else {
+    btnDissolve.style.display = 'none';
+  }
 }
 
 function renderTabs() {
@@ -351,7 +406,7 @@ function renderTabs() {
     
     tab.addEventListener('click', () => {
       state.activeConv = key;
-      conv.unread = 0; // 进入时清零未读
+      conv.unread = 0;
       renderTabs();
       renderMessages();
     });
@@ -408,21 +463,14 @@ function renderMessages() {
 
     if (msg.from === 'me' && msg.type !== 'recalled') {
       bubble.title = '右键或长按可撤回';
-      bubble.addEventListener('contextmenu', e => {
-        e.preventDefault();
-        showMessageMenu(msg);
-      });
-
+      bubble.addEventListener('contextmenu', e => { e.preventDefault(); showMessageMenu(msg); });
       let pressTimer = null;
       bubble.addEventListener('touchstart', () => {
         clearTimeout(pressTimer);
         pressTimer = setTimeout(() => {
-          pressTimer = null;
-          bubble._suppressUntil = Date.now() + 600;
-          showMessageMenu(msg);
+          pressTimer = null; bubble._suppressUntil = Date.now() + 600; showMessageMenu(msg);
         }, 500);
       }, { passive: true });
-
       const cancelPress = () => { clearTimeout(pressTimer); };
       bubble.addEventListener('touchmove', cancelPress, { passive: true });
       bubble.addEventListener('touchend', cancelPress);
@@ -437,16 +485,15 @@ function renderMessages() {
   scrollToBottom();
 }
 
-// ---------- 语音播放 (切换图标) ----------
+// ---------- 语音播放 ----------
 let currentAudio = null;
 let currentBubble = null;
-
 function stopCurrentAudio() {
   if (currentAudio) { try { currentAudio.pause(); } catch (e) {} currentAudio = null; }
   if (currentBubble) { 
     currentBubble.classList.remove('playing'); 
     const icon = currentBubble.querySelector('.play-icon');
-    if (icon) icon.textContent = '▶'; // 恢复三角
+    if (icon) icon.textContent = '▶';
     currentBubble = null; 
   }
 }
@@ -454,66 +501,47 @@ function stopCurrentAudio() {
 function playVoice(base64, bubbleEl) {
   if (currentBubble === bubbleEl && currentAudio) { stopCurrentAudio(); return; }
   stopCurrentAudio();
-  
   const audio = new Audio(base64);
   currentAudio = audio;
   currentBubble = bubbleEl;
   bubbleEl.classList.add('playing');
-  bubbleEl.querySelector('.play-icon').textContent = '⏸'; // 变成两条竖线
+  bubbleEl.querySelector('.play-icon').textContent = '⏸';
   
   audio.onended = () => { 
     bubbleEl.classList.remove('playing'); 
     bubbleEl.querySelector('.play-icon').textContent = '▶';
-    currentAudio = null; 
-    currentBubble = null; 
+    currentAudio = null; currentBubble = null; 
   };
   audio.onerror = () => { 
     bubbleEl.classList.remove('playing'); 
     bubbleEl.querySelector('.play-icon').textContent = '▶';
     alert('语音播放失败（格式不兼容）'); 
-    currentAudio = null; 
-    currentBubble = null;
+    currentAudio = null; currentBubble = null;
   };
   audio.play().catch(err => { 
     bubbleEl.classList.remove('playing'); 
     bubbleEl.querySelector('.play-icon').textContent = '▶';
-    currentAudio = null; 
-    currentBubble = null;
+    currentAudio = null; currentBubble = null;
   });
 }
 
-// ---------- 后台提醒 ----------
+// ---------- 提醒 ----------
 let titleTimer = null;
 const originalTitle = document.title;
-
 function startTitleBlink() {
   if (titleTimer) return;
   let isOriginal = false;
-  titleTimer = setInterval(() => {
-    document.title = isOriginal ? '【新消息】方言传话' : originalTitle;
-    isOriginal = !isOriginal;
-  }, 1000);
+  titleTimer = setInterval(() => { document.title = isOriginal ? '【新消息】方言传话' : originalTitle; isOriginal = !isOriginal; }, 1000);
 }
 function stopTitleBlink() {
-  if (titleTimer) {
-    clearInterval(titleTimer);
-    titleTimer = null;
-    document.title = originalTitle;
-  }
+  if (titleTimer) { clearInterval(titleTimer); titleTimer = null; document.title = originalTitle; }
 }
-document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible') {
-    stopTitleBlink();
-  }
-});
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') stopTitleBlink(); });
 
 let lastSoundTime = 0;
 function tryPlaySound() {
   const now = Date.now();
-  if (now - lastSoundTime > 2000) { // 2秒内只响一次，防止刷屏刺耳
-    playNotificationSound();
-    lastSoundTime = now;
-  }
+  if (now - lastSoundTime > 2000) { playNotificationSound(); lastSoundTime = now; }
 }
 function playNotificationSound() {
   try {
@@ -534,7 +562,7 @@ function playNotificationSound() {
   } catch (e) {}
 }
 
-// ---------- 发送消息 ----------
+// ---------- 发送 ----------
 function sendText() {
   const input = document.getElementById('text-input');
   const text = input.value.trim();
@@ -542,12 +570,10 @@ function sendText() {
 
   const conv = state.conversations[state.activeConv];
   const to = conv.type === 'public' ? 'public' : conv.targetIds;
-
   socket.emit('chat:send', { to, type: 'text', content: text });
   input.value = '';
 }
 
-// ---------- 录音发送 ----------
 let mediaRecorder = null;
 let audioChunks = [];
 let recordStartTime = 0;
@@ -564,7 +590,6 @@ function pickMimeType() {
 async function toggleRecord() {
   const btn = document.getElementById('record-btn');
   if (mediaRecorder && mediaRecorder.state === 'recording') { mediaRecorder.stop(); return; }
-
   try {
     recordStream = await navigator.mediaDevices.getUserMedia({ audio: true });
     const mimeType = pickMimeType();
@@ -576,17 +601,14 @@ async function toggleRecord() {
       clearInterval(recordTimer);
       const duration = Math.max(1, Math.round((Date.now() - recordStartTime) / 1000));
       const blob = new Blob(audioChunks, { type: mediaRecorder.mimeType });
-      
       const reader = new FileReader();
       reader.readAsDataURL(blob);
       reader.onloadend = () => {
         const base64data = reader.result;
         const conv = state.conversations[state.activeConv];
         const to = conv.type === 'public' ? 'public' : conv.targetIds;
-        
         socket.emit('chat:send', { to, type: 'voice', content: base64data, duration });
       };
-
       if (recordStream) recordStream.getTracks().forEach(t => t.stop());
       btn.textContent = '🎤';
       btn.classList.remove('recording');
@@ -602,14 +624,14 @@ async function toggleRecord() {
       if (s >= 60) mediaRecorder.stop();
     }, 300);
   } catch (err) {
-    alert('无法录音，请确保允许麦克风权限且使用的是 https 或 localhost。');
+    alert('无法录音，请确保允许麦克风权限且使用的是 https。');
   }
 }
 
-// ---------- 私聊与撤回 ----------
+// ---------- 其他 ----------
 function startPrivateChat() {
   const checked = Array.from(document.querySelectorAll('.member-check:checked'))
-    .map(c => c.value).filter(id => id !== state.me.id);
+    .map(c => c.value).filter(id => id !== state.me.userId); // 排除自己
 
   if (checked.length === 0) { alert('请先勾选成员'); return; }
   const key = 'private:' + checked.slice().sort().join(',');
@@ -639,12 +661,10 @@ function hideMessageMenu() {
   document.getElementById('msg-menu-overlay').classList.remove('show');
 }
 
-// ---------- 事件绑定 ----------
 document.getElementById('send-btn').addEventListener('click', sendText);
 document.getElementById('text-input').addEventListener('keydown', e => { if (e.key === 'Enter') sendText(); });
 document.getElementById('record-btn').addEventListener('click', toggleRecord);
 document.getElementById('private-btn').addEventListener('click', startPrivateChat);
-
 document.getElementById('members-toggle').addEventListener('click', () => {
   document.getElementById('members-panel').classList.add('open');
   document.getElementById('overlay').classList.add('show');
@@ -653,7 +673,6 @@ document.getElementById('overlay').addEventListener('click', () => {
   document.getElementById('members-panel').classList.remove('open');
   document.getElementById('overlay').classList.remove('show');
 });
-
 document.getElementById('recall-btn').addEventListener('click', () => {
   if (pendingRecall) socket.emit('chat:recall', { msgId: pendingRecall.id });
   hideMessageMenu();
