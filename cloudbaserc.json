@@ -1,0 +1,7 @@
+{
+  "envId": "fangyan-chat-d8glrdrjcef968e7d",
+  "$schema": "https://static.cloudbase.net/cli/cloudbaserc.schema.json",
+  "cloudrun": {
+    "name": "fangyan-chat"
+  }
+}
