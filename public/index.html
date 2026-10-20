@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>方言传话 · 聊天室</title>
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; }
+  body {
+    margin: 0; height: 100vh; height: 100dvh; display: flex; flex-direction: column;
+    font-family: system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: #f0f2f5; color: #222; overflow: hidden;
+  }
+
+  header {
+    background: #fff; border-bottom: 1px solid #e0e0e0;
+    padding: 10px 16px; padding-top: calc(10px + env(safe-area-inset-top));
+    display: flex; align-items: center; justify-content: space-between; gap: 10px; flex: none;
+  }
+  .room-title { font-weight: 600; font-size: 16px; white-space: nowrap; }
+  .me-info { font-size: 13px; color: #666; white-space: nowrap; }
+  .me-info b { color: #07c160; }
+  .mobile-only { display: none; }
+
+  .main { flex: 1; display: flex; min-height: 0; position: relative; }
+
+  .members {
+    width: 230px; background: #fff; border-right: 1px solid #e0e0e0;
+    display: flex; flex-direction: column; flex: none;
+  }
+  .members-title { padding: 12px 14px 8px; font-size: 13px; color: #888; font-weight: 600; }
+  .members-list { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+  .member-item { display: flex; align-items: center; gap: 8px; padding: 10px 14px; cursor: pointer; min-height: 48px; }
+  .member-item:hover { background: #f7f7f7; }
+  .member-check { width: 18px; height: 18px; accent-color: #07c160; flex: none; cursor: pointer; }
+  .avatar { width: 34px; height: 34px; border-radius: 50%; flex: none; background: #4a90e2; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 14px; user-select: none; }
+  .member-name { flex: 1; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .host-tag { font-size: 11px; background: #fff3cd; color: #b8860b; padding: 1px 5px; border-radius: 4px; margin-left: 4px; vertical-align: middle; }
+  .transfer-btn { font-size: 11px; padding: 4px 7px; background: #eee; color: #555; border: none; border-radius: 5px; cursor: pointer; flex: none; }
+  .transfer-btn:hover { background: #ddd; }
+  .members-footer { padding: 10px; padding-bottom: calc(10px + env(safe-area-inset-bottom)); border-top: 1px solid #eee; flex: none; }
+  .members-footer button { width: 100%; }
+
+  .overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.35); z-index: 99; }
+  .overlay.show { display: block; }
+
+  .chat { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+  .tabs { display: flex; background: #fff; border-bottom: 1px solid #e0e0e0; overflow-x: auto; flex: none; scrollbar-width: none; }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tab { position: relative; padding: 12px 16px; font-size: 14px; cursor: pointer; white-space: nowrap; border-bottom: 2px solid transparent; color: #555; flex: none; }
+  .tab.active { color: #07c160; border-bottom-color: #07c160; font-weight: 600; }
+  .unread-badge {
+    display: inline-block; background: #ff3b30; color: #fff;
+    font-size: 11px; padding: 1px 5px; border-radius: 10px;
+    margin-left: 4px; vertical-align: middle;
+  }
+
+  .messages { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+  .system-msg { text-align: center; color: #999; font-size: 12px; padding: 2px 0; line-height: 1.5; }
+  .system-msg.recalled { color: #aaa; }
+
+  .msg-row { display: flex; gap: 8px; align-items: flex-start; }
+  .msg-row.mine { flex-direction: row-reverse; }
+  .bubble { max-width: 68%; padding: 9px 13px; border-radius: 12px; background: #fff; line-height: 1.45; font-size: 15px; word-break: break-word; box-shadow: 0 1px 2px rgba(0,0,0,.04); }
+  .msg-row.mine .bubble { background: #95ec69; }
+
+  .voice-bubble { display: flex; align-items: center; gap: 8px; cursor: pointer; min-width: 90px; user-select: none; }
+  .voice-bubble.playing { background: #d4f5c9 !important; }
+  .play-icon { font-size: 12px; }
+  .voice-duration { font-size: 13px; color: #444; }
+
+  .composer { display: flex; gap: 8px; padding: 10px 12px; padding-bottom: calc(10px + env(safe-area-inset-bottom)); background: #fff; border-top: 1px solid #e0e0e0; flex: none; align-items: center; }
+  .composer input { flex: 1; padding: 11px 12px; border: 1px solid #ddd; border-radius: 8px; outline: none; font-size: 16px; min-width: 0; }
+  .composer input:focus { border-color: #07c160; }
+
+  button { cursor: pointer; border: none; border-radius: 8px; padding: 0 16px; height: 44px; background: #07c160; color: #fff; font-size: 15px; flex: none; touch-action: manipulation; }
+  button:disabled { opacity: .5; cursor: not-allowed; }
+  #record-btn { background: #f0f0f0; color: #333; padding: 0; width: 44px; font-size: 20px; }
+  #record-btn.recording { background: #e74c3c; color: #fff; width: auto; padding: 0 14px; font-size: 15px; }
+
+  /* 撤回菜单 */
+  .msg-menu-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.35); z-index: 200; }
+  .msg-menu-overlay.show { display: block; }
+  .msg-menu { display: none; position: fixed; left: 50%; bottom: 0; transform: translateX(-50%); width: 100%; max-width: 420px; background: #fff; border-radius: 12px 12px 0 0; padding-bottom: env(safe-area-inset-bottom); z-index: 201; overflow: hidden; box-shadow: 0 -2px 16px rgba(0,0,0,.15); }
+  .msg-menu.show { display: block; animation: slideUp .2s ease; }
+  @keyframes slideUp { from { transform: translate(-50%, 100%); } to { transform: translate(-50%, 0); } }
+  .msg-menu button { display: block; width: 100%; height: auto; padding: 16px; font-size: 16px; background: #fff; color: #333; border: none; border-radius: 0; border-bottom: 1px solid #f0f0f0; text-align: center; }
+  .msg-menu button.danger { color: #e74c3c; }
+  .msg-menu button.cancel { color: #666; border-bottom: none; background: #f7f7f7; }
+
+  /* 登录弹窗 */
+  .login-modal { position: fixed; inset: 0; background: #f0f2f5; z-index: 999; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  .login-box { background: #fff; padding: 30px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); width: 90%; max-width: 360px; display: flex; flex-direction: column; gap: 16px; }
+  .login-box h2 { margin: 0 0 10px 0; text-align: center; color: #333; font-size: 20px; }
+  .login-box input { padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 16px; outline: none; }
+  .login-box input:focus { border-color: #07c160; }
+  .login-box button { width: 100%; }
+
+  @media (max-width: 768px) {
+    .desktop-only { display: none; }
+    .mobile-only { display: inline-flex; }
+    .members { position: fixed; top: 0; bottom: 0; left: 0; width: 82vw; max-width: 320px; z-index: 100; transform: translateX(-100%); transition: transform .25s ease; box-shadow: 2px 0 16px rgba(0,0,0,.18); padding-top: env(safe-area-inset-top); }
+    .members.open { transform: translateX(0); }
+    .bubble { max-width: 76%; font-size: 15px; }
+    .messages { padding: 12px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- 登录弹窗 -->
+<div id="login-modal" class="login-modal">
+  <div class="login-box">
+    <h2>加入聊天室</h2>
+    <input id="input-room" type="text" placeholder="房间码（如：fangyan888）" autocomplete="off">
+    <input id="input-name" type="text" placeholder="你的昵称" autocomplete="off">
+    <button id="btn-join">进入房间</button>
+  </div>
+</div>
+
+<header>
+  <div class="room-title">方言传话 · 聊天室</div>
+  <div class="me-info desktop-only">
+    我：<b id="my-name">-</b> · 主持人：<b id="host-name">-</b>
+  </div>
+  <button id="members-toggle" class="mobile-only" style="background:#f0f0f0;color:#333;">成员</button>
+</header>
+
+<div class="main">
+  <div class="overlay" id="overlay"></div>
+
+  <aside class="members" id="members-panel">
+    <div class="members-title">房间成员（勾选后可私聊）</div>
+    <div class="members-list" id="members-list"></div>
+    <div class="members-footer">
+      <button id="private-btn">和选中的人私聊</button>
+    </div>
+  </aside>
+
+  <section class="chat">
+    <div class="tabs" id="tabs"></div>
+    <div class="messages" id="messages"></div>
+    <div class="composer">
+      <button id="record-btn" title="点击录音">🎤</button>
+      <input id="text-input" type="text" placeholder="输入消息，按回车发送" autocomplete="off">
+      <button id="send-btn">发送</button>
+    </div>
+  </section>
+</div>
+
+<div class="msg-menu-overlay" id="msg-menu-overlay"></div>
+<div class="msg-menu" id="msg-menu">
+  <button id="recall-btn" class="danger">撤回</button>
+  <button id="cancel-btn" class="cancel">取消</button>
+</div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+const socket = io();
+
+const state = {
+  me: { id: '', name: '' },
+  hostId: null,
+  members: [],
+  conversations: {
+    public: { type: 'public', title: '公聊', messages: [], unread: 0 }
+  },
+  activeConv: 'public'
+};
+
+// ---------- 登录逻辑 ----------
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('btn-join').addEventListener('click', joinRoom);
+  document.getElementById('input-room').addEventListener('keydown', e => { if (e.key === 'Enter') joinRoom(); });
+  document.getElementById('input-name').addEventListener('keydown', e => { if (e.key === 'Enter') joinRoom(); });
+});
+
+function joinRoom() {
+  const roomId = document.getElementById('input-room').value.trim();
+  const name = document.getElementById('input-name').value.trim();
+  if (!roomId) { alert('请输入房间码'); return; }
+  if (!name) { alert('请输入昵称'); return; }
+
+  state.me.name = name;
+  document.getElementById('my-name').textContent = name;
+  document.getElementById('login-modal').style.display = 'none';
+  
+  socket.emit('user:join', { roomId, name });
+}
+
+// ---------- 接收后端数据 ----------
+socket.on('room:init', (data) => {
+  state.me.id = socket.id;
+  state.members = data.users;
+  state.hostId = data.hostId;
+  
+  state.conversations.public.messages = [];
+  data.messages.forEach(msg => {
+    // 初始化时，如果是私聊且包含自己，放进私聊会话，否则放入公聊
+    processIncomingMessage(msg, true);
+  });
+
+  renderMembers();
+  renderTabs();
+  renderMessages();
+});
+
+socket.on('room:update-users', (users) => {
+  state.members = users;
+  renderMembers();
+});
+
+socket.on('host:changed', (hostId) => {
+  state.hostId = hostId;
+  const hostName = getMember(hostId).name;
+  const hostEl = document.getElementById('host-name');
+  if (hostEl) hostEl.textContent = hostName || '-';
+  renderMembers();
+});
+
+socket.on('system:msg', (text) => {
+  state.conversations.public.messages.push({
+    type: 'system',
+    content: text,
+    time: Date.now()
+  });
+  if (state.activeConv === 'public') renderMessages();
+});
+
+socket.on('chat:receive', (msg) => {
+  processIncomingMessage(msg, false);
+});
+
+socket.on('chat:recalled', ({ msgId }) => {
+  Object.values(state.conversations).forEach(conv => {
+    const msg = conv.messages.find(m => m.id === msgId);
+    if (msg) {
+      msg.type = 'recalled';
+      msg.content = null;
+      msg.duration = null;
+    }
+  });
+  stopCurrentAudio();
+  renderMessages();
+});
+
+// 统一处理收到消息的逻辑（加载历史记录和实时接收复用）
+function processIncomingMessage(msg, isInit) {
+  let convKey = 'public';
+  
+  if (msg.isPrivate) {
+    const others = msg.to.filter(id => id !== state.me.id);
+    const sortedIds = others.sort().join(',');
+    convKey = 'private:' + sortedIds;
+
+    if (!state.conversations[convKey]) {
+      const names = others.map(id => getMember(id).name).join('、');
+      state.conversations[convKey] = {
+        type: 'private',
+        title: '私聊(' + names + ')',
+        targetIds: others,
+        messages: [],
+        unread: 0
+      };
+      if (!isInit) renderTabs();
+    }
+  }
+
+  const conv = state.conversations[convKey];
+  if (!conv) return;
+
+  if (!conv.messages.find(m => m.id === msg.id)) {
+    conv.messages.push({
+      id: msg.id,
+      from: msg.from === state.me.id ? 'me' : msg.from,
+      type: msg.isRecalled ? 'recalled' : msg.type,
+      content: msg.content,
+      duration: msg.duration,
+      time: msg.time
+    });
+
+    if (!isInit) {
+      const isVisible = document.visibilityState === 'visible' && state.activeConv === convKey;
+      if (state.activeConv === convKey) {
+        renderMessages();
+      } else {
+        conv.unread = (conv.unread || 0) + 1;
+        renderTabs();
+      }
+      
+      // 消息提醒 (避免提示自己发的消息)
+      if (!isVisible && msg.from !== state.me.id) {
+        tryPlaySound();
+        if (document.visibilityState === 'hidden') {
+          startTitleBlink();
+        }
+      }
+    }
+  }
+}
+
+// ---------- 渲染逻辑 ----------
+function getMember(id) {
+  return state.members.find(m => m.id === id) || { id, name: '未知' };
+}
+function scrollToBottom() {
+  const box = document.getElementById('messages');
+  box.scrollTop = box.scrollHeight;
+}
+
+function renderMembers() {
+  const list = document.getElementById('members-list');
+  list.innerHTML = '';
+  state.members.forEach(m => {
+    const isHost = m.id === state.hostId;
+    const isMe = m.id === state.me.id;
+    const canTransfer = (state.me.id === state.hostId) && !isHost;
+
+    const item = document.createElement('div');
+    item.className = 'member-item';
+    item.innerHTML =
+      '<input type="checkbox" class="member-check" value="' + m.id + '"' + (isMe ? ' disabled' : '') + '>' +
+      '<div class="avatar">' + (m.name[0] || '?') + '</div>' +
+      '<div class="member-name">' + m.name + (isHost ? ' <span class="host-tag">主持</span>' : '') + '</div>' +
+      (canTransfer ? '<button class="transfer-btn" data-id="' + m.id + '">设为主持</button>' : '');
+
+    item.addEventListener('click', e => {
+      if (e.target.closest('.transfer-btn')) return;
+      if (e.target.classList.contains('member-check')) return;
+      const cb = item.querySelector('.member-check');
+      if (cb && !cb.disabled) cb.checked = !cb.checked;
+    });
+
+    list.appendChild(item);
+  });
+
+  list.querySelectorAll('.transfer-btn').forEach(btn => {
+    btn.addEventListener('click', () => socket.emit('host:transfer', btn.dataset.id));
+  });
+}
+
+function renderTabs() {
+  const tabs = document.getElementById('tabs');
+  tabs.innerHTML = '';
+  Object.entries(state.conversations).forEach(([key, conv]) => {
+    const tab = document.createElement('div');
+    tab.className = 'tab' + (key === state.activeConv ? ' active' : '');
+    const unread = conv.unread || 0;
+    tab.innerHTML = conv.title + (unread > 0 ? `<span class="unread-badge">${unread > 99 ? '99+' : unread}</span>` : '');
+    
+    tab.addEventListener('click', () => {
+      state.activeConv = key;
+      conv.unread = 0; // 进入时清零未读
+      renderTabs();
+      renderMessages();
+    });
+    tabs.appendChild(tab);
+  });
+}
+
+function renderMessages() {
+  stopCurrentAudio();
+  const box = document.getElementById('messages');
+  const conv = state.conversations[state.activeConv];
+  box.innerHTML = '';
+  if (!conv) return;
+
+  conv.messages.forEach(msg => {
+    if (msg.type === 'system') {
+      const div = document.createElement('div');
+      div.className = 'system-msg';
+      div.textContent = msg.content;
+      box.appendChild(div);
+      return;
+    }
+
+    if (msg.type === 'recalled') {
+      const div = document.createElement('div');
+      div.className = 'system-msg recalled';
+      const who = msg.from === 'me' ? '你' : getMember(msg.from).name;
+      div.textContent = who + '撤回了一条消息';
+      box.appendChild(div);
+      return;
+    }
+
+    const row = document.createElement('div');
+    row.className = 'msg-row' + (msg.from === 'me' ? ' mine' : '');
+
+    const member = getMember(msg.from);
+    const avatar = document.createElement('div');
+    avatar.className = 'avatar';
+    avatar.textContent = member.name[0] || '?';
+
+    const bubble = document.createElement('div');
+    bubble.className = 'bubble';
+
+    if (msg.type === 'text') {
+      bubble.textContent = msg.content;
+    } else if (msg.type === 'voice') {
+      bubble.classList.add('voice-bubble');
+      bubble.innerHTML = '<span class="play-icon">▶</span><span class="voice-duration">' + msg.duration + '"</span>';
+      bubble.addEventListener('click', () => {
+        if (Date.now() < (bubble._suppressUntil || 0)) return;
+        playVoice(msg.content, bubble);
+      });
+    }
+
+    if (msg.from === 'me' && msg.type !== 'recalled') {
+      bubble.title = '右键或长按可撤回';
+      bubble.addEventListener('contextmenu', e => {
+        e.preventDefault();
+        showMessageMenu(msg);
+      });
+
+      let pressTimer = null;
+      bubble.addEventListener('touchstart', () => {
+        clearTimeout(pressTimer);
+        pressTimer = setTimeout(() => {
+          pressTimer = null;
+          bubble._suppressUntil = Date.now() + 600;
+          showMessageMenu(msg);
+        }, 500);
+      }, { passive: true });
+
+      const cancelPress = () => { clearTimeout(pressTimer); };
+      bubble.addEventListener('touchmove', cancelPress, { passive: true });
+      bubble.addEventListener('touchend', cancelPress);
+      bubble.addEventListener('touchcancel', cancelPress);
+    }
+
+    row.appendChild(avatar);
+    row.appendChild(bubble);
+    box.appendChild(row);
+  });
+
+  scrollToBottom();
+}
+
+// ---------- 语音播放 (切换图标) ----------
+let currentAudio = null;
+let currentBubble = null;
+
+function stopCurrentAudio() {
+  if (currentAudio) { try { currentAudio.pause(); } catch (e) {} currentAudio = null; }
+  if (currentBubble) { 
+    currentBubble.classList.remove('playing'); 
+    const icon = currentBubble.querySelector('.play-icon');
+    if (icon) icon.textContent = '▶'; // 恢复三角
+    currentBubble = null; 
+  }
+}
+
+function playVoice(base64, bubbleEl) {
+  if (currentBubble === bubbleEl && currentAudio) { stopCurrentAudio(); return; }
+  stopCurrentAudio();
+  
+  const audio = new Audio(base64);
+  currentAudio = audio;
+  currentBubble = bubbleEl;
+  bubbleEl.classList.add('playing');
+  bubbleEl.querySelector('.play-icon').textContent = '⏸'; // 变成两条竖线
+  
+  audio.onended = () => { 
+    bubbleEl.classList.remove('playing'); 
+    bubbleEl.querySelector('.play-icon').textContent = '▶';
+    currentAudio = null; 
+    currentBubble = null; 
+  };
+  audio.onerror = () => { 
+    bubbleEl.classList.remove('playing'); 
+    bubbleEl.querySelector('.play-icon').textContent = '▶';
+    alert('语音播放失败（格式不兼容）'); 
+    currentAudio = null; 
+    currentBubble = null;
+  };
+  audio.play().catch(err => { 
+    bubbleEl.classList.remove('playing'); 
+    bubbleEl.querySelector('.play-icon').textContent = '▶';
+    currentAudio = null; 
+    currentBubble = null;
+  });
+}
+
+// ---------- 后台提醒 ----------
+let titleTimer = null;
+const originalTitle = document.title;
+
+function startTitleBlink() {
+  if (titleTimer) return;
+  let isOriginal = false;
+  titleTimer = setInterval(() => {
+    document.title = isOriginal ? '【新消息】方言传话' : originalTitle;
+    isOriginal = !isOriginal;
+  }, 1000);
+}
+function stopTitleBlink() {
+  if (titleTimer) {
+    clearInterval(titleTimer);
+    titleTimer = null;
+    document.title = originalTitle;
+  }
+}
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') {
+    stopTitleBlink();
+  }
+});
+
+let lastSoundTime = 0;
+function tryPlaySound() {
+  const now = Date.now();
+  if (now - lastSoundTime > 2000) { // 2秒内只响一次，防止刷屏刺耳
+    playNotificationSound();
+    lastSoundTime = now;
+  }
+}
+function playNotificationSound() {
+  try {
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContext) return;
+    const ctx = new AudioContext();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(800, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(1200, ctx.currentTime + 0.1);
+    gain.gain.setValueAtTime(0.5, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.3);
+  } catch (e) {}
+}
+
+// ---------- 发送消息 ----------
+function sendText() {
+  const input = document.getElementById('text-input');
+  const text = input.value.trim();
+  if (!text) return;
+
+  const conv = state.conversations[state.activeConv];
+  const to = conv.type === 'public' ? 'public' : conv.targetIds;
+
+  socket.emit('chat:send', { to, type: 'text', content: text });
+  input.value = '';
+}
+
+// ---------- 录音发送 ----------
+let mediaRecorder = null;
+let audioChunks = [];
+let recordStartTime = 0;
+let recordTimer = null;
+let recordStream = null;
+
+function pickMimeType() {
+  if (!window.MediaRecorder || !MediaRecorder.isTypeSupported) return '';
+  const types = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4'];
+  for (const t of types) { if (MediaRecorder.isTypeSupported(t)) return t; }
+  return '';
+}
+
+async function toggleRecord() {
+  const btn = document.getElementById('record-btn');
+  if (mediaRecorder && mediaRecorder.state === 'recording') { mediaRecorder.stop(); return; }
+
+  try {
+    recordStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const mimeType = pickMimeType();
+    mediaRecorder = mimeType ? new MediaRecorder(recordStream, { mimeType }) : new MediaRecorder(recordStream);
+    audioChunks = [];
+
+    mediaRecorder.ondataavailable = e => { if (e.data.size > 0) audioChunks.push(e.data); };
+    mediaRecorder.onstop = () => {
+      clearInterval(recordTimer);
+      const duration = Math.max(1, Math.round((Date.now() - recordStartTime) / 1000));
+      const blob = new Blob(audioChunks, { type: mediaRecorder.mimeType });
+      
+      const reader = new FileReader();
+      reader.readAsDataURL(blob);
+      reader.onloadend = () => {
+        const base64data = reader.result;
+        const conv = state.conversations[state.activeConv];
+        const to = conv.type === 'public' ? 'public' : conv.targetIds;
+        
+        socket.emit('chat:send', { to, type: 'voice', content: base64data, duration });
+      };
+
+      if (recordStream) recordStream.getTracks().forEach(t => t.stop());
+      btn.textContent = '🎤';
+      btn.classList.remove('recording');
+    };
+
+    mediaRecorder.start();
+    recordStartTime = Date.now();
+    btn.textContent = '⏹ 0"';
+    btn.classList.add('recording');
+    recordTimer = setInterval(() => {
+      const s = Math.round((Date.now() - recordStartTime) / 1000);
+      btn.textContent = '⏹ ' + s + '"';
+      if (s >= 60) mediaRecorder.stop();
+    }, 300);
+  } catch (err) {
+    alert('无法录音，请确保允许麦克风权限且使用的是 https 或 localhost。');
+  }
+}
+
+// ---------- 私聊与撤回 ----------
+function startPrivateChat() {
+  const checked = Array.from(document.querySelectorAll('.member-check:checked'))
+    .map(c => c.value).filter(id => id !== state.me.id);
+
+  if (checked.length === 0) { alert('请先勾选成员'); return; }
+  const key = 'private:' + checked.slice().sort().join(',');
+  
+  if (!state.conversations[key]) {
+    const names = checked.map(id => getMember(id).name).join('、');
+    state.conversations[key] = {
+      type: 'private', targetIds: checked, title: '私聊(' + names + ')', messages: [], unread: 0
+    };
+  }
+  state.activeConv = key;
+  state.conversations[key].unread = 0;
+  renderTabs(); renderMessages();
+  document.getElementById('members-panel').classList.remove('open');
+  document.getElementById('overlay').classList.remove('show');
+}
+
+let pendingRecall = null;
+function showMessageMenu(msg) {
+  pendingRecall = msg;
+  document.getElementById('msg-menu').classList.add('show');
+  document.getElementById('msg-menu-overlay').classList.add('show');
+}
+function hideMessageMenu() {
+  pendingRecall = null;
+  document.getElementById('msg-menu').classList.remove('show');
+  document.getElementById('msg-menu-overlay').classList.remove('show');
+}
+
+// ---------- 事件绑定 ----------
+document.getElementById('send-btn').addEventListener('click', sendText);
+document.getElementById('text-input').addEventListener('keydown', e => { if (e.key === 'Enter') sendText(); });
+document.getElementById('record-btn').addEventListener('click', toggleRecord);
+document.getElementById('private-btn').addEventListener('click', startPrivateChat);
+
+document.getElementById('members-toggle').addEventListener('click', () => {
+  document.getElementById('members-panel').classList.add('open');
+  document.getElementById('overlay').classList.add('show');
+});
+document.getElementById('overlay').addEventListener('click', () => {
+  document.getElementById('members-panel').classList.remove('open');
+  document.getElementById('overlay').classList.remove('show');
+});
+
+document.getElementById('recall-btn').addEventListener('click', () => {
+  if (pendingRecall) socket.emit('chat:recall', { msgId: pendingRecall.id });
+  hideMessageMenu();
+});
+document.getElementById('cancel-btn').addEventListener('click', hideMessageMenu);
+document.getElementById('msg-menu-overlay').addEventListener('click', hideMessageMenu);
+</script>
+</body>
+</html>
